@@ -9,7 +9,7 @@ These projects highlight advanced architectural patterns, framework interoperabi
 ## 🤖 Project 1: RAG-Powered Intelligent Chatbot
 
 **Enterprise-Grade Conversational AI with Retrieval-Augmented Generation**  
-*File: `rag_qa_chatbot_local.py` (Local) / `rag_qa_chatbot.py` (Cloud)*
+*File: `rag_qa_chatbot_local.py`
 
 A sophisticated, privacy-first chatbot that allows users to converse with their own documents. By implementing a modular **Retrieval-Augmented Generation (RAG)** pipeline, this system bridges the gap between static knowledge (PDFs) and dynamic AI reasoning, eliminating hallucinations and enabling precise, context-aware answers.
 
