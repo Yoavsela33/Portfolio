@@ -68,4 +68,4 @@ A scalable Retrieval-Augmented Generation (RAG) system that transforms static PD
 
 ## 📬 Contact
 **Yoav Sela**  
-*Senior AI Engineer*
+yoavsela@gmail.com
