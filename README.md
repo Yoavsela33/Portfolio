@@ -2,7 +2,21 @@
 
 A collection of production-ready implementations demonstrating proficiency across the full ML spectrum: **Deep Learning**, **Generative AI**, **Classical Machine Learning**, and **Feature Engineering**.
 
-These projects showcase advanced architectural patterns, framework interoperability (PyTorch, TensorFlow, scikit-learn), model interpretability, fairness analysis, and the ability to deploy complex AI systems both locally and in the cloud.
+These projects showcase advanced architectural patterns, framework interoperability (PyTorch, TensorFlow, scikit-learn), model interpretability, and the ability to deploy complex AI systems both locally and in the cloud.
+
+---
+
+## 🔧 Skills Demonstrated
+
+| Domain | Technologies |
+|--------|-------------|
+| **Deep Learning** | PyTorch, TensorFlow/Keras, Vision Transformers, CNNs, Grad-CAM |
+| **Generative AI** | LangChain, RAG, Ollama, LLM Integration, Conversation Memory |
+| **Classical ML** | XGBoost, Random Forest, Logistic Regression, SMOTE, ELO Ratings |
+| **Feature Engineering** | Time-series features, Interaction terms, Antisymmetric design |
+| **Model Interpretability** | SHAP, Grad-CAM, Feature importance analysis |
+| **MLOps & Deployment** | Gradio, Model persistence, API design |
+| **Statistical Analysis** | Hypothesis testing, Confidence intervals, Calibration |
 
 ---
 
@@ -73,16 +87,12 @@ generate_gradcam_visualization(model, image, class_names=['agricultural', 'non_a
 **Two-Stage ML Pipeline for Financial Collections Forecasting**  
 *File: `debt_recovery_predictor.py`*
 
-A production-grade machine learning system for predicting post-default debt collection recovery. The pipeline addresses the real-world challenge of **zero-inflated financial data** through a sophisticated two-stage approach, with comprehensive **fairness auditing** for regulatory compliance.
+A production-grade machine learning system for predicting post-default debt collection recovery. The pipeline addresses the real-world challenge of **zero-inflated financial data** through a sophisticated two-stage approach.
 
 ### Key Engineering Features
 - **Two-Stage Architecture**: 
     - Stage 1: XGBoost classifier with **SMOTE** for severe class imbalance (11% recovery rate)
     - Stage 2: XGBoost regressor trained only on positive recovery cases
-- **Fairness & Bias Analysis**: 
-    - Demographic parity ratio computation across protected attributes
-    - Equalized odds (TPR/FPR) analysis for regulatory compliance (ECOA, Fair Lending)
-    - Automated flagging when metrics fall below 80% threshold
 - **Model Interpretability**: Full **SHAP analysis** pipeline for explaining individual predictions and global feature importance
 - **Rigorous Uncertainty Quantification**: 
     - Bootstrap confidence intervals for portfolio-level estimates
@@ -97,21 +107,8 @@ A production-grade machine learning system for predicting post-default debt coll
 python3 debt_recovery_predictor.py
 
 # Or import as module
-from debt_recovery_predictor import main, run_fairness_audit
+from debt_recovery_predictor import main
 pipeline, metrics = main('debts.csv', 'collections.csv')
-```
-
-### Fairness Audit Output
-```
-📊 SEX Analysis:
-   Male:   Positive Rate: 11.2%, TPR: 19.5%
-   Female: Positive Rate: 10.8%, TPR: 18.9%
-   
-   Disparity Metrics:
-      Demographic Parity Ratio: 0.964 ✅
-      Equalized Odds (TPR): 0.969 ✅
-
-📋 OVERALL: All fairness thresholds passed (80% rule)
 ```
 
 ---
@@ -155,21 +152,6 @@ output = main('match_data.csv')
 | RF_Calibrated | 0.8057 | 0.5326 | 0.7190 | 0.7189 |
 
 *Key Insight: Logistic Regression outperforms tree-based models due to the antisymmetric feature design, which is inherently linear.*
-
----
-
-## 🔧 Skills Demonstrated
-
-| Domain | Technologies |
-|--------|-------------|
-| **Deep Learning** | PyTorch, TensorFlow/Keras, Vision Transformers, CNNs, Grad-CAM |
-| **Generative AI** | LangChain, RAG, Ollama, LLM Integration, Conversation Memory |
-| **Classical ML** | XGBoost, Random Forest, Logistic Regression, SMOTE, ELO Ratings |
-| **Feature Engineering** | Time-series features, Interaction terms, Antisymmetric design |
-| **Model Interpretability** | SHAP, Grad-CAM, Feature importance analysis |
-| **Responsible AI** | Fairness auditing, Demographic parity, Equalized odds |
-| **MLOps & Deployment** | Gradio, Model persistence, API design |
-| **Statistical Analysis** | Hypothesis testing, Confidence intervals, Calibration |
 
 ---
 
