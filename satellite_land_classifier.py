@@ -9,6 +9,7 @@ Skills Demonstrated:
 • CNN architectures in Keras and PyTorch
 • Vision Transformer (ViT) implementation
 • CNN-ViT hybrid model design
+• Grad-CAM visualization for model interpretability
 • Data augmentation and preprocessing
 • Model evaluation with comprehensive metrics
 • Framework comparison (TensorFlow/Keras vs PyTorch)
@@ -696,6 +697,280 @@ def compare_model_performance(keras_metrics: dict, pytorch_metrics: dict):
             print(f"{metric:<15} {str(keras_val):>12} {str(pytorch_val):>12}")
     
     print("="*60)
+
+
+# ==============================================================================
+# SECTION 6: GRAD-CAM VISUALIZATION (Model Interpretability)
+# ==============================================================================
+
+class GradCAM:
+    """
+    Gradient-weighted Class Activation Mapping (Grad-CAM) for CNN interpretability.
+    
+    Grad-CAM uses the gradients flowing into the final convolutional layer to 
+    produce a coarse localization map highlighting important regions in the image
+    for predicting a concept.
+    
+    Reference: Selvaraju et al., "Grad-CAM: Visual Explanations from Deep Networks 
+    via Gradient-based Localization" (ICCV 2017)
+    """
+    
+    def __init__(self, model: torch.nn.Module, target_layer: torch.nn.Module):
+        """
+        Initialize Grad-CAM.
+        
+        Args:
+            model: PyTorch model
+            target_layer: The convolutional layer to compute CAM for
+        """
+        self.model = model
+        self.target_layer = target_layer
+        self.gradients = None
+        self.activations = None
+        
+        # Register hooks
+        self._register_hooks()
+    
+    def _register_hooks(self):
+        """Register forward and backward hooks on target layer."""
+        def forward_hook(module, input, output):
+            self.activations = output.detach()
+        
+        def backward_hook(module, grad_input, grad_output):
+            self.gradients = grad_output[0].detach()
+        
+        self.target_layer.register_forward_hook(forward_hook)
+        self.target_layer.register_full_backward_hook(backward_hook)
+    
+    def generate_cam(
+        self, 
+        input_tensor: torch.Tensor, 
+        target_class: int = None
+    ) -> np.ndarray:
+        """
+        Generate Grad-CAM heatmap for an input image.
+        
+        Args:
+            input_tensor: Input image tensor (1, C, H, W)
+            target_class: Class to generate CAM for (None = predicted class)
+            
+        Returns:
+            CAM heatmap as numpy array (H, W)
+        """
+        self.model.eval()
+        
+        # Forward pass
+        output = self.model(input_tensor)
+        
+        if target_class is None:
+            target_class = output.argmax(dim=1).item()
+        
+        # Backward pass
+        self.model.zero_grad()
+        target = output[0, target_class]
+        target.backward()
+        
+        # Compute weights (global average pooling of gradients)
+        weights = self.gradients.mean(dim=(2, 3), keepdim=True)
+        
+        # Weighted combination of activation maps
+        cam = (weights * self.activations).sum(dim=1, keepdim=True)
+        
+        # ReLU and normalize
+        cam = torch.relu(cam)
+        cam = cam.squeeze().cpu().numpy()
+        
+        # Normalize to [0, 1]
+        cam = (cam - cam.min()) / (cam.max() - cam.min() + 1e-8)
+        
+        return cam
+    
+    def visualize(
+        self,
+        input_tensor: torch.Tensor,
+        original_image: np.ndarray,
+        target_class: int = None,
+        alpha: float = 0.5,
+        colormap: str = 'jet'
+    ) -> np.ndarray:
+        """
+        Generate visualization overlaying CAM on original image.
+        
+        Args:
+            input_tensor: Preprocessed input tensor
+            original_image: Original image (H, W, 3) in [0, 255]
+            target_class: Class to visualize
+            alpha: Overlay transparency
+            colormap: Matplotlib colormap name
+            
+        Returns:
+            Visualization image (H, W, 3)
+        """
+        import cv2
+        
+        # Generate CAM
+        cam = self.generate_cam(input_tensor, target_class)
+        
+        # Resize CAM to match image size
+        cam_resized = cv2.resize(cam, (original_image.shape[1], original_image.shape[0]))
+        
+        # Apply colormap
+        cmap = plt.get_cmap(colormap)
+        cam_colored = cmap(cam_resized)[:, :, :3]  # Remove alpha channel
+        cam_colored = (cam_colored * 255).astype(np.uint8)
+        
+        # Ensure original image is uint8
+        if original_image.max() <= 1.0:
+            original_image = (original_image * 255).astype(np.uint8)
+        
+        # Overlay
+        visualization = cv2.addWeighted(
+            original_image.astype(np.uint8), 1 - alpha,
+            cam_colored, alpha, 0
+        )
+        
+        return visualization
+
+
+def generate_gradcam_visualization(
+    model: torch.nn.Module,
+    image: np.ndarray,
+    target_layer_name: str = 'features',
+    class_names: list = None,
+    save_path: str = None
+):
+    """
+    Generate and display Grad-CAM visualization for a satellite image.
+    
+    Args:
+        model: Trained PyTorch CNN model
+        image: Input image (H, W, 3) normalized
+        target_layer_name: Name of conv layer to visualize
+        class_names: List of class names
+        save_path: Optional path to save visualization
+    """
+    model.eval()
+    device = next(model.parameters()).device
+    
+    # Get target layer
+    if hasattr(model, target_layer_name):
+        target_layer = getattr(model, target_layer_name)
+        # Get last conv layer if it's a Sequential
+        if isinstance(target_layer, torch.nn.Sequential):
+            for layer in reversed(list(target_layer.children())):
+                if isinstance(layer, torch.nn.Conv2d):
+                    target_layer = layer
+                    break
+    else:
+        raise ValueError(f"Layer '{target_layer_name}' not found in model")
+    
+    # Initialize Grad-CAM
+    gradcam = GradCAM(model, target_layer)
+    
+    # Prepare input
+    transform = transforms.Compose([
+        transforms.ToPILImage(),
+        transforms.Resize((IMG_SIZE, IMG_SIZE)),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ])
+    
+    # Handle different image formats
+    if image.max() > 1.0:
+        image_uint8 = image.astype(np.uint8)
+    else:
+        image_uint8 = (image * 255).astype(np.uint8)
+    
+    input_tensor = transform(image_uint8).unsqueeze(0).to(device)
+    
+    # Get prediction
+    with torch.no_grad():
+        output = model(input_tensor)
+        pred_class = output.argmax(dim=1).item()
+        pred_prob = torch.softmax(output, dim=1)[0, pred_class].item()
+    
+    # Generate visualization
+    visualization = gradcam.visualize(
+        input_tensor,
+        cv2.resize(image_uint8, (IMG_SIZE, IMG_SIZE)),
+        target_class=pred_class
+    )
+    
+    # Plot
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+    
+    # Original image
+    axes[0].imshow(cv2.resize(image_uint8, (IMG_SIZE, IMG_SIZE)))
+    axes[0].set_title('Original Image')
+    axes[0].axis('off')
+    
+    # Grad-CAM heatmap
+    cam = gradcam.generate_cam(input_tensor, pred_class)
+    axes[1].imshow(cam, cmap='jet')
+    axes[1].set_title('Grad-CAM Heatmap')
+    axes[1].axis('off')
+    
+    # Overlay
+    axes[2].imshow(visualization)
+    pred_name = class_names[pred_class] if class_names else str(pred_class)
+    axes[2].set_title(f'Prediction: {pred_name} ({pred_prob:.2%})')
+    axes[2].axis('off')
+    
+    plt.suptitle('Grad-CAM Visualization: What the CNN Sees', fontsize=14)
+    plt.tight_layout()
+    
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        print(f"✅ Visualization saved to {save_path}")
+    
+    plt.show()
+    
+    return visualization, pred_class, pred_prob
+
+
+def batch_gradcam_analysis(
+    model: torch.nn.Module,
+    images: list,
+    class_names: list = None,
+    save_dir: str = "gradcam_results"
+):
+    """
+    Generate Grad-CAM visualizations for a batch of images.
+    
+    Args:
+        model: Trained PyTorch model
+        images: List of images (numpy arrays)
+        class_names: List of class names
+        save_dir: Directory to save results
+    """
+    import os
+    os.makedirs(save_dir, exist_ok=True)
+    
+    print(f"\n🔍 Generating Grad-CAM visualizations for {len(images)} images...")
+    
+    results = []
+    for i, img in enumerate(images):
+        save_path = os.path.join(save_dir, f"gradcam_{i}.png")
+        vis, pred_class, pred_prob = generate_gradcam_visualization(
+            model, img, 
+            class_names=class_names,
+            save_path=save_path
+        )
+        results.append({
+            'image_idx': i,
+            'predicted_class': pred_class,
+            'confidence': pred_prob
+        })
+    
+    print(f"✅ All visualizations saved to {save_dir}/")
+    return results
+
+
+# Import cv2 for Grad-CAM (add to imports if needed)
+try:
+    import cv2
+except ImportError:
+    print("OpenCV not installed. Grad-CAM visualization requires: pip install opencv-python")
 
 
 # ==============================================================================
