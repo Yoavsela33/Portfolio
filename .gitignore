@@ -35,3 +35,4 @@ ENV/
 # Local RAG data
 chroma_db/
 metadatas/
+venv/
